@@ -1,0 +1,8 @@
+name: PlayerReferrals
+version: ${project.version}
+main: com.stanexe.playerreferrals.PlayerReferrals
+api-version: 1.16
+prefix: PlayerReferrals
+authors: [ StanEXE ]
+description: Allow your players to get rewards for inviting their friends!
+website: stanexe.com
