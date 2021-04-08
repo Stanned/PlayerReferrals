@@ -1,0 +1,15 @@
+prefix: "&8[&3PlayerReferrals&8] "
+
+nonplayer-referral: "Sadly, you have to be a player to put in a referral code"
+
+# You can use placeholders in the messages below (case-sensitive):
+# %player% for the player's username
+
+no-referral-in-time: "&cYou have not put in a referral name yet, use /referral <username> to receive your rewards!"
+no-referral-too-late: "&cYou have not put in a referral name yet, but you're too late!"
+
+admin-check-usage: "&cUsage: /referraladmin check <player>"
+admin-set-usage: "&cUsage: /referraladmin set <player> <score>"
+admin-no-player-found: "&cThat player has not joined before."
+admin-check-score: "&3The referral-score of &b%specifiedPlayer% &3is &b%score%" # %specifiedPlayer%, %score%
+admin-edit-not-a-number: "&cThe value you specified is not a number" # %%specifiedPlayer%
