@@ -40,12 +40,13 @@ public class RefUser {
             PreparedStatement stmt = conn.prepareStatement("SELECT * FROM `referral-scores` WHERE `uuid` = ?;");
             stmt.setString(1, String.valueOf(uuid));
             ResultSet resultSet = stmt.executeQuery();
-            if (!resultSet.next()) {
-                return 0;
-            } else {
+            if (resultSet.next()) {
                 int score = resultSet.getInt("score");
-                conn.close();
+                stmt.close();
                 return score;
+            } else {
+                stmt.close();
+                return 0;
             }
 
         } catch (SQLException throwables) {
@@ -57,12 +58,12 @@ public class RefUser {
     public void setPlayerScore(int newScore) {
         Connection conn;
         try {
-            conn = new SQLite().openConnection();
-            PreparedStatement stmt = conn.prepareStatement("INSERT INTO `referral-scores` (`uuid`, `score`) VALUES(?, ?) ON CONFLICT(`uuid`) DO UPDATE SET `score`=?;");
+            conn = DatabaseUtil.getConn();
+            PreparedStatement stmt = conn.prepareStatement("INSERT OR REPLACE INTO `referral-scores` (`uuid`, `score`) VALUES (?, ?)");
             stmt.setString(1, String.valueOf(uuid));
             stmt.setInt(2, newScore);
-            stmt.setInt(3, newScore);
-            stmt.execute();
+            stmt.executeUpdate();
+            Bukkit.getLogger().info(String.valueOf(conn.isValid(1)));
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }
@@ -89,6 +90,7 @@ public class RefUser {
             PreparedStatement stmt = conn.prepareStatement("SELECT `referrer-uuid` FROM `referrals` WHERE `uuid` = ?");
             stmt.setString(1, String.valueOf(uuid));
             ResultSet resultSet = stmt.executeQuery();
+            stmt.close();
             if (!resultSet.next()) {
                 return null;
             } else {
@@ -100,11 +102,6 @@ public class RefUser {
             throwables.printStackTrace();
         }
         return null;
-    }
-
-    public void giveRewards() {
-        //TODO: Give actual rewards
-        Bukkit.getPlayer(uuid).sendMessage("You have received rewards.");
     }
 
     public void setReferrer(UUID referrerUUID) {
@@ -120,6 +117,11 @@ public class RefUser {
             e.printStackTrace();
         }
 
+    }
+
+    public void giveRewards() {
+        //TODO: Give actual rewards
+        Bukkit.getPlayer(uuid).sendMessage("You have received rewards.");
     }
 
     public void resetReferrer() {

@@ -12,11 +12,23 @@ import java.util.concurrent.Executors;
 public class DatabaseUtil {
     static PlayerReferrals plugin = PlayerReferrals.getInstance();
     static String dbType = plugin.getConfig().getString("database-type");
+    static ExecutorService dbThread = Executors.newSingleThreadExecutor();
 
+    private static Connection conn;
     public static Connection getConn() {
+        try {
+            if (conn != null && conn.isValid(1/10)) {
+                Bukkit.getLogger().info("Old connection still valid. Reusing old connection");
+                return conn;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
         if (dbType.equalsIgnoreCase("SQLITE")) {
             try {
-                return new SQLite().openConnection();
+                conn = new SQLite().openConnection();
+                return conn;
             } catch (SQLException throwables) {
                 plugin.getLogger().warning("Unable to open connection to database. If this is a bug, please report it.");
             }
@@ -35,30 +47,20 @@ public class DatabaseUtil {
     }
 
 
-    static ExecutorService dbThread = Executors.newSingleThreadExecutor();
-
-    public static ExecutorService getDbThread() {
-        return dbThread;
-    }
-
     public static void initializeTables(Connection conn) {
-        getDbThread().execute(new Runnable() {
-            @Override
-            public void run() {
-                String[] sql = {"CREATE TABLE IF NOT EXISTS `referrals` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `referrer-uuid` CHAR(36));",
-                        "CREATE TABLE IF NOT EXISTS `referral-scores` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `score` INT DEFAULT 0 NOT NULL);",
-                        "CREATE TABLE IF NOT EXISTS `awaiting-reward` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `reward-types` TEXT)"};
-                int i;
-                for (i = 0; i < sql.length; i++) {
-                    try {
-                        Statement stmt = conn.createStatement();
-                        stmt.execute(sql[i]);
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                    }
-                }
+
+        String[] sql = {"CREATE TABLE IF NOT EXISTS `referrals` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `referrer-uuid` CHAR(36));",
+                "CREATE TABLE IF NOT EXISTS `referral-scores` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `score` INT DEFAULT 0 NOT NULL);",
+                "CREATE TABLE IF NOT EXISTS `awaiting-reward` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `reward-types` TEXT)"};
+        int i;
+        for (i = 0; i < sql.length; i++) {
+            try {
+                Statement stmt = conn.createStatement();
+                stmt.execute(sql[i]);
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        });
+        }
 
 
     }
