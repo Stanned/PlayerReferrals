@@ -10,21 +10,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class DatabaseUtil {
+    private static final ExecutorService dbThread = Executors.newSingleThreadExecutor();
     static PlayerReferrals plugin = PlayerReferrals.getInstance();
     static String dbType = plugin.getConfig().getString("database-type");
-    static ExecutorService dbThread = Executors.newSingleThreadExecutor();
-
     private static Connection conn;
+
     public static Connection getConn() {
         try {
-            if (conn != null && conn.isValid(1/10)) {
-                Bukkit.getLogger().info("Old connection still valid. Reusing old connection");
+            if (conn != null && conn.isValid(1)) {
                 return conn;
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
         if (dbType.equalsIgnoreCase("SQLITE")) {
             try {
                 conn = new SQLite().openConnection();
@@ -46,12 +44,12 @@ public class DatabaseUtil {
         return null;
     }
 
-
     public static void initializeTables(Connection conn) {
 
         String[] sql = {"CREATE TABLE IF NOT EXISTS `referrals` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `referrer-uuid` CHAR(36));",
                 "CREATE TABLE IF NOT EXISTS `referral-scores` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `score` INT DEFAULT 0 NOT NULL);",
-                "CREATE TABLE IF NOT EXISTS `awaiting-reward` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `reward-types` TEXT)"};
+                "CREATE TABLE IF NOT EXISTS `awaiting-reward` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `reward-score` INT NOT NULL, `referral-uuid` CHAR(36) NOT NULL)",
+                "CREATE TABLE IF NOT EXISTS `ip-addresses` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `ip` TEXT)"};
         int i;
         for (i = 0; i < sql.length; i++) {
             try {
@@ -62,19 +60,10 @@ public class DatabaseUtil {
             }
         }
 
-
     }
 
-
-    public static void returnConnection(Connection conn) {
-        if (dbType.equalsIgnoreCase("SQLITE")) {
-            try {
-                conn.close();
-            } catch (SQLException throwables) {
-                return;
-            }
-        } else if (dbType.equalsIgnoreCase("MYSQL")) {
-            // Put connection back in pool (?)
-        }
+    public static ExecutorService getDbThread() {
+        return dbThread;
     }
+
 }

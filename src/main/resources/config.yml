@@ -1,6 +1,8 @@
 # Don't change this
 config-version: 1.0
 
+# ALL PLACEHOLDERS ARE CASE-SENSITIVE
+
 # Automatically check for updates on launch
 check-for-updates: true
 
@@ -15,13 +17,30 @@ username: username
 password: password
 table-prefix: 'ref_'
 
-custom-codes:
-  example:
+# Global rewards a player will receive when they referred another player, milestones can be set further down the config file
+# Commands will be executed by the console
+# Placeholders: %username%, %newScore%, %referredUsername%
+referral-rewards:
+  commands:
+    - "eco give %username% 50"
+  message: "&3You referred &b%referredUsername% &3and have received rewards! Your current score is &b%newScore%&3."
+
+# Rewards a player will receive when they get referred by another player
+# Commands will be executed by the console
+# Placeholders: %username%, %referralUsername%
+referred-rewards:
+  commands:
+    - "eco give %username% 25"
+  message: "&bYou &3and &b%referralUsername% &3have both received rewards!"
+
+# Milestones allow you to give special rewards once a player reaches a certain referral-score
+# Placeholders: %username%, %score%
+enable-milestones: true
+milestones:
+  5:
     commands:
-      - "eco give %player% 500"
-    message: "&aYou used code 'example'!"
-    #In order to use no permission, remove the permission line
-    permission: playerreferrals.welcome
+      - "eco give %username% 100"
+    message: "&3You reached &b%score% &3and have received additional rewards!"
 
 
 minutes-allowed: 60

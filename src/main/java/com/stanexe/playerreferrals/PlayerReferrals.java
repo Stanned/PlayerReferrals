@@ -2,7 +2,9 @@ package com.stanexe.playerreferrals;
 
 import com.stanexe.playerreferrals.commands.ReferralAdminCommand;
 import com.stanexe.playerreferrals.commands.ReferralCommand;
+import com.stanexe.playerreferrals.events.JoinListener;
 import com.stanexe.playerreferrals.util.DatabaseUtil;
+import com.stanexe.playerreferrals.util.Milestones;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -11,19 +13,16 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.Connection;
 import java.util.Objects;
 
 public final class PlayerReferrals extends JavaPlugin {
 
     private static PlayerReferrals instance;
     private FileConfiguration messagesConfig;
-    private static Connection conn;
 
     public static PlayerReferrals getInstance() {
         return instance;
     }
-    static String dbType;
     @Override
     public void onEnable() {
         instance = this;
@@ -32,11 +31,19 @@ public final class PlayerReferrals extends JavaPlugin {
         createMessagesConfig();
 
         // Connect to database
-        DatabaseUtil.initializeTables(DatabaseUtil.getConn());
+        DatabaseUtil.getDbThread().execute(() -> DatabaseUtil.initializeTables(DatabaseUtil.getConn()));
+
+        // Init milestones
+        new Milestones();
+
+        // Events
+        Bukkit.getPluginManager().registerEvents(new JoinListener(), this);
 
         // Commands
         Objects.requireNonNull(getCommand("referraladmin")).setExecutor(new ReferralAdminCommand());
         Objects.requireNonNull(getCommand("referral")).setExecutor(new ReferralCommand());
+
+
 
         getLogger().info("PlayerReferrals has been enabled.");
 
@@ -62,6 +69,16 @@ public final class PlayerReferrals extends JavaPlugin {
         }
     }
 
+
+    public void reloadConfigs() {
+        reloadConfig();
+        File messagesFile = new File(getDataFolder(), "messages.yml");
+        try {
+            messagesConfig.load(messagesFile);
+        } catch (IOException | InvalidConfigurationException e) {
+            e.printStackTrace();
+        }
+    }
 
     public FileConfiguration getMessagesConfig() {
         return messagesConfig;
