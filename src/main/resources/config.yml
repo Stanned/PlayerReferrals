@@ -1,10 +1,7 @@
 # Don't change this
 config-version: 1.0
-
+# TODO: add update checker
 # ALL PLACEHOLDERS ARE CASE-SENSITIVE
-
-# Automatically check for updates on launch
-check-for-updates: true
 
 # Type of database to use, choose SQLITE for a local database and MYSQL if you use a MYSQL database
 database-type: SQLITE
@@ -17,13 +14,20 @@ username: username
 password: password
 table-prefix: 'ref_'
 
+# If true, players are able to refer each other
+refer-each-other: false
+
+# If enabled, will log the ip of players once they join and makes sure players can not be referred by someone with the same IP address
+# I strongly recommend using this in combination with a VPN blocker of your choice, to prevent easily bypassing this.
+ip-check: true
+
 # Global rewards a player will receive when they referred another player, milestones can be set further down the config file
 # Commands will be executed by the console
-# Placeholders: %username%, %newScore%, %referredUsername%
+# Placeholders: %username%, %score%, %referredUsername%
 referral-rewards:
   commands:
     - "eco give %username% 50"
-  message: "&3You referred &b%referredUsername% &3and have received rewards! Your current score is &b%newScore%&3."
+  message: "&3You referred &b%referredUsername% &3and have received rewards! Your current score is &b%score%&3."
 
 # Rewards a player will receive when they get referred by another player
 # Commands will be executed by the console

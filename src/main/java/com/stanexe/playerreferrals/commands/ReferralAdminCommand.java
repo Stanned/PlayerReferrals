@@ -1,26 +1,31 @@
 package com.stanexe.playerreferrals.commands;
 
+import com.google.common.collect.Lists;
 import com.stanexe.playerreferrals.PlayerReferrals;
 import com.stanexe.playerreferrals.util.DatabaseUtil;
 import com.stanexe.playerreferrals.util.RefUser;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabExecutor;
 import org.bukkit.configuration.file.FileConfiguration;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 import static com.stanexe.playerreferrals.util.StringTools.colors;
 
-public class ReferralAdminCommand implements CommandExecutor {
+public class ReferralAdminCommand implements TabExecutor {
     private final PlayerReferrals plugin = PlayerReferrals.getInstance();
     private final FileConfiguration messagesConfig = plugin.getMessagesConfig();
     private final String prefix = colors(messagesConfig.getString("prefix"));
+    final FileConfiguration messages = plugin.getMessagesConfig();
 
     @Override
+    @SuppressWarnings("deprecation")
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
             sendHelpMessage(sender, label);
@@ -40,27 +45,47 @@ public class ReferralAdminCommand implements CommandExecutor {
                             if (score == -1) {
                                 sender.sendMessage("It appears a database error has occurred. If this is a bug, please report it.");
                             } else {
-                                String message = "&b" + oPlayer.getName()
-                                        + "\n&3Score: &b" + score;
+                                String message = null;
+                                String checkScore = messages.getString("check.score");
+                                if (checkScore != null) {
+                                    message = checkScore + "&r";
+                                }
                                 UUID referrerUUID = refUser.getReferrer();
                                 if (referrerUUID == null) {
-                                    message = message + "\n&3They have not been referred by anyone.";
+                                    String checkReferredNo = messages.getString("check.referred-no");
+                                    if (checkReferredNo != null) {
+                                        message = message + "\n" + checkReferredNo + "&r";
+                                    }
                                 } else {
-                                    message = message + "\n&3They have been referred by &b" + Bukkit.getOfflinePlayer(referrerUUID).getName();
+                                    String checkReferredYes = messages.getString("check.referred-yes");
+                                    if (checkReferredYes != null) {
+                                        message = message + "\n" + checkReferredYes + "&r";
+                                    }
                                 }
-                                sender.sendMessage(colors(message));
+                                if (message == null) {
+                                    return;
+                                }
+                                sendMessage(oPlayer, refUser, sender, message);
                             }
                         });
                     } else {
-                        sender.sendMessage(prefix + colors(messagesConfig.getString("admin-no-player-found")));
+                        String msg = messages.getString("admin-check-no-player-found");
+                        if (msg == null) {
+                            return true;
+                        }
+                        sendMessage(oPlayer, new RefUser(oPlayer.getUniqueId()), sender, msg);
                     }
                 } else {
-                    sender.sendMessage(colors(prefix + colors(messagesConfig.getString("admin-check-usage"))));
+                    String msg = messages.getString("admin-check-usage");
+                    if (msg == null) {
+                        return true;
+                    }
+                    sendMessage(sender, msg);
 
                 }
                 break;
             case "set":
-                if (args.length != 2) {
+                if (args.length >= 3) {
                     OfflinePlayer oPlayer = Bukkit.getOfflinePlayer(args[1]);
                     if (oPlayer.hasPlayedBefore()) {
                         int newScore;
@@ -71,14 +96,27 @@ public class ReferralAdminCommand implements CommandExecutor {
                             return true;
                         }
                         DatabaseUtil.getDbThread().execute(() -> {
-                            new RefUser(oPlayer.getUniqueId()).setPlayerScore(newScore);
-                            sender.sendMessage(colors("&3The score of &b" + oPlayer.getName() + " &3has been set to &b" + newScore + "&3."));
+                            RefUser refUser = new RefUser(oPlayer.getUniqueId());
+                            refUser.setPlayerScore(newScore);
+                            String msg = messages.getString("admin-set-success");
+                            if (msg == null) {
+                                return;
+                            }
+                            sendMessage(oPlayer, refUser, sender, msg);
                         });
                     } else {
-                        sender.sendMessage(prefix + colors(messagesConfig.getString("admin-no-player-found")));
+                        String msg = messages.getString("admin-set-no-player-found");
+                        if (msg == null) {
+                            return true;
+                        }
+                        sendMessage(oPlayer, new RefUser(oPlayer.getUniqueId()), sender, msg);
                     }
                 } else {
-                    sender.sendMessage(colors(prefix + colors(messagesConfig.getString("admin-set-usage"))));
+                    String msg = messages.getString("admin-set-usage");
+                    if (msg == null) {
+                        return true;
+                    }
+                    sendMessage(sender, msg);
 
                 }
                 break;
@@ -95,18 +133,29 @@ public class ReferralAdminCommand implements CommandExecutor {
                         DatabaseUtil.getDbThread().execute(() -> {
                             RefUser refUser = new RefUser(oPlayer.getUniqueId());
                             refUser.adjustPlayerScore(value);
-                            sender.sendMessage(colors("&3The score of &b" + oPlayer.getName() + " &3has been adjusted by &b" + value + "&3.&r\n" +
-                                    "&3Their score is now &b" + refUser.getPlayerScore() + "&3."));
+                            String msg = messages.getString("admin-adjust-success");
+                            if (msg == null) {
+                                return;
+                            }
+                            sendMessage(oPlayer, new RefUser(oPlayer.getUniqueId()), sender, msg, value);
+
                         });
                     } else {
-                        sender.sendMessage(prefix + colors(messagesConfig.getString("admin-no-player-found")));
+                        String msg = messages.getString("admin-adjust-no-player-found");
+                        if (msg == null) {
+                            return true;
+                        }
+                        sendMessage(oPlayer, new RefUser(oPlayer.getUniqueId()), sender, msg);
                     }
                 } else {
-                    sender.sendMessage(colors(prefix + colors("&cUsage: /referraladmin adjust <player> <value>")));
+                    String msg = messages.getString("admin-adjust-usage");
+                    if (msg == null) {
+                        return true;
+                    }
+                    sendMessage(sender, msg);
                 }
                 break;
             case "reload":
-                // FIXME: VERY INEFFICIENT
                 Bukkit.getPluginManager().disablePlugin(PlayerReferrals.getInstance());
                 Bukkit.getPluginManager().enablePlugin(PlayerReferrals.getInstance());
                 break;
@@ -122,13 +171,25 @@ public class ReferralAdminCommand implements CommandExecutor {
                         DatabaseUtil.getDbThread().execute(() -> {
                             RefUser refUser = new RefUser(oPlayer.getUniqueId());
                             refUser.resetReferrer();
-                            sender.sendMessage(colors("&3The referral status of &b" + oPlayer.getName() + " &3has been reset. (Not their score)"));
+                            String msg = messages.getString("admin-reset-success");
+                            if (msg == null) {
+                                return;
+                            }
+                            sendMessage(oPlayer, refUser, sender, msg);
                         });
                     } else {
-                        sender.sendMessage(prefix + colors(messagesConfig.getString("admin-no-player-found")));
+                        String msg = messages.getString("admin-reset-no-player-found");
+                        if (msg == null) {
+                            return true;
+                        }
+                        sendMessage(oPlayer, new RefUser(oPlayer.getUniqueId()), sender, msg);
                     }
                 } else {
-                    sender.sendMessage(colors(prefix + colors("&cUsage: /referraladmin reset <player>")));
+                    String msg = messages.getString("admin-reset-usage");
+                    if (msg == null) {
+                        return true;
+                    }
+                    sendMessage(sender, msg);
 
                 }
                 break;
@@ -137,6 +198,33 @@ public class ReferralAdminCommand implements CommandExecutor {
 
         return true;
     }
+
+    private void sendMessage(OfflinePlayer oPlayer, RefUser refUser, CommandSender sender, String msg, int value) {
+        msg = msg.replace("%username%", Objects.requireNonNull(oPlayer.getName()));
+        msg = msg.replace("%score%", String.valueOf(refUser.getPlayerScore()));
+        UUID referrerUUID = refUser.getReferrer();
+        if (referrerUUID != null) {
+            msg = msg.replace("%referrerUsername%", Objects.requireNonNull(Bukkit.getOfflinePlayer(refUser.getReferrer()).getName()));
+        }
+        msg = msg.replace("%value%", String.valueOf(value));
+        sender.sendMessage(prefix + colors(msg));
+    }
+
+    private void sendMessage(CommandSender sender, String msg) {
+        sender.sendMessage(prefix + colors(msg));
+    }
+
+    private void sendMessage(OfflinePlayer oPlayer, RefUser refUser, CommandSender sender, String msg) {
+        msg = msg.replace("%username%", Objects.requireNonNull(oPlayer.getName()));
+        msg = msg.replace("%score%", String.valueOf(refUser.getPlayerScore()));
+        UUID referrerUUID = refUser.getReferrer();
+        if (referrerUUID != null) {
+            msg = msg.replace("%referrerUsername%", Objects.requireNonNull(Bukkit.getOfflinePlayer(refUser.getReferrer()).getName()));
+        }
+
+        sender.sendMessage(prefix + colors(msg));
+    }
+
 
     private void sendHelpMessage(CommandSender sender, String label) {
         sender.sendMessage(colors("&3/" + label + " help &8- &bShowcases this help message&r" +
@@ -149,4 +237,18 @@ public class ReferralAdminCommand implements CommandExecutor {
         ));
     }
 
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> arguments = Arrays.asList("help", "check", "set", "adjust", "reset", "about", "reload");
+        List<String> Flist = Lists.newArrayList();
+        if (args.length == 1) {
+            for (String s : arguments) {
+                if (s.toLowerCase().startsWith(args[0].toLowerCase())) {
+                    Flist.add(s);
+                }
+            }
+            return Flist;
+        }
+        return null;
+    }
 }

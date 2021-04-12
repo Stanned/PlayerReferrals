@@ -1,5 +1,6 @@
 package com.stanexe.playerreferrals.commands;
 
+import com.stanexe.playerreferrals.PlayerReferrals;
 import com.stanexe.playerreferrals.util.DatabaseUtil;
 import com.stanexe.playerreferrals.util.RefUser;
 import org.bukkit.Bukkit;
@@ -7,17 +8,27 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
+import java.util.Objects;
 import java.util.UUID;
 
 import static com.stanexe.playerreferrals.util.StringTools.colors;
 
 public class ReferralCommand implements CommandExecutor {
+    final PlayerReferrals plugin = PlayerReferrals.getInstance();
+    final FileConfiguration messages = plugin.getMessagesConfig();
+
     @Override
+    @SuppressWarnings("deprecation")
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage(colors("This command can only be used by a player, for admin commands please use /referraladmin"));
+            String msg = messages.getString("nonplayer");
+            if (msg != null) {
+                sender.sendMessage(colors(msg));
+            }
+
             return true;
         }
         Player player = (Player) sender;
@@ -25,15 +36,32 @@ public class ReferralCommand implements CommandExecutor {
             DatabaseUtil.getDbThread().execute(() -> {
                 RefUser refUser = new RefUser(player.getUniqueId());
                 UUID referrer = refUser.getReferrer();
-                String message = "&3Your referral score is &B" + refUser.getPlayerScore() + "&r";
+                String referralScore = messages.getString("referral.score");
+                String message = null;
+                if (referralScore != null) {
+                    message = messages.getString("referral.score") + "&r";
+                }
                 if (referrer != null) {
-                    message = message + "\n&3You have been referred by: &b" + Bukkit.getOfflinePlayer(refUser.getReferrer()).getName() + "&r";
+                    String referralReferred = messages.getString("referral.referred");
+                    if (referralReferred != null) {
+                        message = message + "\n" + messages.getString("referral.referred") + "&r";
+                    }
+
                 }
                 if (refUser.isInTime() && referrer == null) {
-                    message = message + "\n&3You did not enter a referral username.";
-                    message = message + "\n&3If you have been referred by someone, you have &b" + refUser.getMinutesRemaining() + " minutes &3remaining to enter their referral name using &b/referral <username>";
+                    String referralNoRefer = messages.getString("referral.no-refer");
+                    if (referralNoRefer != null) {
+                        message = message + "\n" + messages.getString("referral.no-refer") + "&r";
+                    }
+                    String referralExplanation = messages.getString("referral.explanation");
+                    if (referralExplanation != null) {
+                        message = message + "\n" + messages.getString("referral.explanation") + "&r";
+                    }
                 }
-                player.sendMessage(colors(message));
+                if (message == null) {
+                    return;
+                }
+                sendMessage(player, refUser, message);
             });
         } else {
             DatabaseUtil.getDbThread().execute(() -> {
@@ -41,44 +69,92 @@ public class ReferralCommand implements CommandExecutor {
                 UUID referrerUUID = refUser.getReferrer();
                 // Check if player can refer
                 if (referrerUUID != null) {
-                    player.sendMessage(colors("&3You have already been referred by someone and cannot enter another code."));
+                    String msg = messages.getString("already-referred");
+                    if (msg == null) {
+                        return;
+                    }
+                    sendMessage(player, refUser, msg);
                     return;
                 } else if (!refUser.isInTime()) {
-                    player.sendMessage(colors("&3Unfortunately, you have run out of time to enter a referral code. Sorry!"));
+                    String msg = messages.getString("out-of-time");
+                    if (msg == null) {
+                        return;
+                    }
+                    sendMessage(player, refUser, msg);
                     return;
                 }
                 // Check if player is self
                 String providedUsername = args[0];
                 OfflinePlayer oPlayer = Bukkit.getOfflinePlayer(providedUsername);
                 if (oPlayer.getUniqueId() == player.getUniqueId()) {
-                    player.sendMessage(colors("&3You can not refer yourself..."));
+                    String msg = messages.getString("refer-self");
+                    if (msg == null) {
+                        return;
+                    }
+                    sendMessage(player, refUser, msg);
                     return;
                 }
+                RefUser oRefUser = new RefUser(oPlayer.getUniqueId());
+
+                // Check if player is referrer of provided player
+                if (!(plugin.getConfig().getBoolean("refer-each-other"))) {
+                    if (oRefUser.getReferrer() == player.getUniqueId()) {
+                        String msg = messages.getString("refer-by-referrer");
+                        if (msg == null) {
+                            return;
+                        }
+                        sendMessage(player, refUser, msg);
+                        return;
+                    }
+                }
+
                 // Check if player exists
                 if (!oPlayer.hasPlayedBefore()) {
-                    player.sendMessage(colors("&3That player has never joined before."));
+                    String msg = messages.getString("player-not-exist");
+                    if (msg == null) {
+                        return;
+                    }
+                    sendMessage(player, refUser, msg);
                     return;
                 }
                 // Check if ip match
-                RefUser oRefUser = new RefUser(oPlayer.getUniqueId());
-                String oIp = oRefUser.getStoredIP();
-                String ip = refUser.getStoredIP();
-                // TODO: uncomment ip check
-//                if (!(oIp == null) && !ip.equals(oIp)) {
-                    referrerUUID = oPlayer.getUniqueId();
-                    refUser.setReferrer(referrerUUID);
-                    refUser.giveReferredRewards(oPlayer.getUniqueId());
-                    oRefUser.adjustPlayerScore(1);
-                    if (oPlayer.isOnline()) {
-                        oRefUser.giveReferralRewards(player.getUniqueId(), oRefUser.getPlayerScore());
-                    } else {
-                        oRefUser.setOfflineRewards(player.getUniqueId(), oRefUser.getPlayerScore() + 1);
+
+                if (plugin.getConfig().getBoolean("ip-check")) {
+                    String oIp = oRefUser.getStoredIP();
+                    String ip = refUser.getStoredIP();
+                    if (!(oIp == null) && ip.equals(oIp)) {
+                        String msg = messages.getString("ip-match");
+                        if (msg == null) {
+                            return;
+                        }
+                        sendMessage(player, refUser, msg);
+                        return;
                     }
-//                } else {
-//                    player.sendMessage(colors("&cYou can not refer someone with the same IP address."));
-//                }
+                }
+
+                referrerUUID = oPlayer.getUniqueId();
+                refUser.setReferrer(referrerUUID);
+                refUser.giveReferredRewards(oPlayer.getUniqueId());
+                oRefUser.adjustPlayerScore(1);
+                if (oPlayer.isOnline()) {
+                    oRefUser.giveReferralRewards(player.getUniqueId(), oRefUser.getPlayerScore());
+                } else {
+                    oRefUser.setOfflineRewards(player.getUniqueId(), oRefUser.getPlayerScore() + 1);
+                }
             });
         }
         return true;
     }
+
+    private void sendMessage(Player player, RefUser refUser, String msg) {
+        msg = msg.replace("%username%", player.getName());
+        msg = msg.replace("%score% ", String.valueOf(refUser.getPlayerScore()));
+        UUID referrerUUID = refUser.getReferrer();
+        if (referrerUUID != null) {
+            msg = msg.replace("%referrerUsername%", Objects.requireNonNull(Bukkit.getOfflinePlayer(refUser.getReferrer()).getName()));
+        }
+        msg = msg.replace("%minutesRemaining%", String.valueOf(refUser.getMinutesRemaining()));
+        player.sendMessage(colors(msg));
+    }
+
 }

@@ -19,3 +19,5 @@ commands:
     aliases:
       - refer
       - ref
+softdepend:
+  - PlaceholderAPI

@@ -10,10 +10,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
+import static com.stanexe.playerreferrals.util.DatabaseUtil.getDbType;
 import static com.stanexe.playerreferrals.util.StringTools.colors;
 
 public class RefUser {
@@ -25,11 +24,21 @@ public class RefUser {
         uuid = providedUuid;
     }
 
+    private final String tablePrefix = plugin.getConfig().getString("table-prefix");
+
     public void adjustPlayerScore(int value) {
+        int oldScore = this.getPlayerScore();
+        Cache.addToScoresCache(uuid, oldScore + value);
+
         Connection conn;
         try {
-            conn = new SQLite().openConnection();
-            PreparedStatement stmt = conn.prepareStatement("INSERT INTO `referral-scores` (`uuid`, `score`) VALUES(?, ?) ON CONFLICT(`uuid`) DO UPDATE SET `score`= score + ?;");
+            conn = DatabaseUtil.getConn();
+            PreparedStatement stmt;
+            if (getDbType().equalsIgnoreCase("SQLITE")) {
+                stmt = conn.prepareStatement("INSERT INTO `" + tablePrefix + "referral-scores` (`uuid`, `score`) VALUES(?, ?) ON CONFLICT(`uuid`) DO UPDATE SET `score`= score + ?;");
+            } else {
+                stmt = conn.prepareStatement("INSERT INTO `" + tablePrefix + "referral-scores` (`uuid`, `score`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `score`= score + ?;");
+            }
             stmt.setString(1, String.valueOf(uuid));
             stmt.setInt(2, value);
             stmt.setInt(3, value);
@@ -40,12 +49,18 @@ public class RefUser {
     }
 
     public int getPlayerScore() {
+
+        HashMap<UUID, Integer> cache = Cache.getScoresCache();
+        if (cache.containsKey(uuid)) {
+            return cache.get(uuid);
+        }
+
         Connection conn;
         try {
             conn = DatabaseUtil.getConn();
             PreparedStatement stmt;
             if (conn != null) {
-                stmt = conn.prepareStatement("SELECT * FROM `referral-scores` WHERE `uuid` = ?;");
+                stmt = conn.prepareStatement("SELECT * FROM `" + tablePrefix + "referral-scores` WHERE `uuid` = ?;");
                 stmt.setString(1, String.valueOf(uuid));
                 ResultSet resultSet = stmt.executeQuery();
                 if (resultSet.next()) {
@@ -57,7 +72,7 @@ public class RefUser {
                     return 0;
                 }
             } else {
-                Bukkit.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+                plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
             }
 
         } catch (SQLException e) {
@@ -67,17 +82,18 @@ public class RefUser {
     }
 
     public void setPlayerScore(int newScore) {
+        Cache.addToScoresCache(uuid, newScore);
         Connection conn;
         try {
             conn = DatabaseUtil.getConn();
             if (conn != null) {
-                PreparedStatement stmt = conn.prepareStatement("INSERT OR REPLACE INTO `referral-scores` (`uuid`, `score`) VALUES (?, ?)");
+                PreparedStatement stmt = conn.prepareStatement("INSERT OR REPLACE INTO `" + tablePrefix + "referral-scores` (`uuid`, `score`) VALUES (?, ?)");
                 stmt.setString(1, String.valueOf(uuid));
                 stmt.setInt(2, newScore);
                 stmt.executeUpdate();
-                Bukkit.getLogger().info(String.valueOf(conn.isValid(1)));
+                plugin.getLogger().info(String.valueOf(conn.isValid(1)));
             } else {
-                Bukkit.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+                plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -99,11 +115,18 @@ public class RefUser {
     }
 
     public String getStoredIP() {
+
+        HashMap<UUID, String> cache = Cache.getIpCache();
+        if (cache.containsKey(uuid)) {
+            plugin.getLogger().info("IP was cached. Cached ip is used.");
+            return cache.get(uuid);
+        }
+
         Connection conn;
         try {
             conn = DatabaseUtil.getConn();
             if (conn != null) {
-                PreparedStatement stmt = conn.prepareStatement("SELECT `ip` FROM `ip-addresses` WHERE `uuid` = ?;");
+                PreparedStatement stmt = conn.prepareStatement("SELECT `ip` FROM `" + tablePrefix + "ip-addresses` WHERE `uuid` = ?;");
                 stmt.setString(1, String.valueOf(uuid));
                 ResultSet resultSet = stmt.executeQuery();
                 if (resultSet.next()) {
@@ -113,7 +136,7 @@ public class RefUser {
                 }
                 stmt.close();
             } else {
-                Bukkit.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+                plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -127,73 +150,95 @@ public class RefUser {
             return;
         }
         String ip = Objects.requireNonNull(p.getAddress()).getHostString();
-        Bukkit.getLogger().info(ip);
-        Connection conn;
-        try {
-            conn = DatabaseUtil.getConn();
-            if (conn != null) {
-                PreparedStatement stmt = conn.prepareStatement("INSERT INTO `ip-addresses` (`uuid`, `ip`) VALUES (?, ?) ON CONFLICT(`uuid`) DO UPDATE SET `ip`=?;");
-                stmt.setString(1, String.valueOf(uuid));
-                stmt.setString(2, ip);
-                stmt.setString(3, ip);
-                stmt.execute();
-                stmt.close();
-            } else {
-                Bukkit.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        Cache.addToIpCache(uuid, ip);
+        DatabaseUtil.getDbThread().execute(() -> {
+            Connection conn;
+            try {
+                conn = DatabaseUtil.getConn();
+                if (conn != null) {
+                    PreparedStatement stmt;
+                    if (getDbType().equalsIgnoreCase("SQLITE")) {
+                        stmt = conn.prepareStatement("INSERT INTO `" + tablePrefix + "ip-addresses` (`uuid`, `ip`) VALUES (?, ?) ON CONFLICT(`uuid`) DO UPDATE SET `ip`=?;");
+                    } else {
+                        stmt = conn.prepareStatement("INSERT INTO `" + tablePrefix + "ip-addresses` (`uuid`, `ip`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `ip`=?;");
+                    }
 
+                    stmt.setString(1, String.valueOf(uuid));
+                    stmt.setString(2, ip);
+                    stmt.setString(3, ip);
+                    stmt.execute();
+                    stmt.close();
+                } else {
+                    plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public UUID getReferrer() {
-        Connection conn;
-        try {
-            conn = DatabaseUtil.getConn();
-            if (conn != null) {
-                PreparedStatement stmt = conn.prepareStatement("SELECT `referrer-uuid` FROM `referrals` WHERE `uuid` = ?");
-                stmt.setString(1, String.valueOf(uuid));
-                ResultSet resultSet = stmt.executeQuery();
-                if (!resultSet.next()) {
-                    return null;
-                } else {
-                    UUID referrerUuid = UUID.fromString(resultSet.getString("referrer-uuid"));
-                    stmt.close();
-                    return referrerUuid;
-                }
-            } else {
-                Bukkit.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
-            }
 
-
-        } catch (SQLException e) {
-            e.printStackTrace();
+        HashMap<UUID, UUID> cache = Cache.getReferralsCache();
+        if (cache.containsKey(uuid)) {
+            plugin.getLogger().info("Referral was cached. Cached referral is used.");
+            return cache.get(uuid);
         }
+
+//        Connection conn;
+//        try {
+//            conn = DatabaseUtil.getConn();
+//            if (conn != null) {
+//                PreparedStatement stmt = conn.prepareStatement("SELECT `referrer-uuid` FROM `" + tablePrefix + "referrals` WHERE `uuid` = ?");
+//                stmt.setString(1, String.valueOf(uuid));
+//                ResultSet resultSet = stmt.executeQuery();
+//                if (!resultSet.next()) {
+//                    return null;
+//                } else {
+//                    UUID referrerUuid = UUID.fromString(resultSet.getString("referrer-uuid"));
+//                    stmt.close();
+//                    return referrerUuid;
+//                }
+//            } else {
+//                plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+//            }
+//
+//
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//        }
         return null;
     }
 
     public void setReferrer(UUID referrerUUID) {
-        Connection conn;
-        try {
-            conn = DatabaseUtil.getConn();
-            if (conn != null) {
-                PreparedStatement stmt = conn.prepareStatement("INSERT INTO `referrals` (`uuid`, `referrer-uuid`) VALUES (?, ?) ON CONFLICT(`uuid`) DO UPDATE SET `referrer-uuid`=?;");
-                stmt.setString(1, String.valueOf(uuid));
-                stmt.setString(2, String.valueOf(referrerUUID));
-                stmt.setString(3, String.valueOf(referrerUUID));
-                stmt.execute();
-                stmt.close();
-            } else {
-                Bukkit.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+        Cache.addToReferralsCache(uuid, referrerUUID);
+        DatabaseUtil.getDbThread().execute(() -> {
+            Connection conn;
+            try {
+                conn = DatabaseUtil.getConn();
+                if (conn != null) {
+                    PreparedStatement stmt;
+                    if (getDbType().equalsIgnoreCase("SQLITE")) {
+                        stmt = conn.prepareStatement("INSERT INTO `" + tablePrefix + "referrals` (`uuid`, `referrer-uuid`) VALUES (?, ?) ON CONFLICT(`uuid`) DO UPDATE SET `referrer-uuid`=?;");
+                    } else {
+                        stmt = conn.prepareStatement("INSERT INTO `" + tablePrefix + "referrals` (`uuid`, `referrer-uuid`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `referrer-uuid`=?;");
+                    }
+                    stmt.setString(1, String.valueOf(uuid));
+                    stmt.setString(2, String.valueOf(referrerUUID));
+                    stmt.setString(3, String.valueOf(referrerUUID));
+                    stmt.execute();
+                    stmt.close();
+                } else {
+                    plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+                }
+
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
+        });
     }
 
+    @SuppressWarnings("unchecked")
     public void giveReferredRewards(UUID referralUUID) {
         Player p = Bukkit.getPlayer(uuid);
         if (p == null) {
@@ -224,6 +269,7 @@ public class RefUser {
 
     }
 
+    @SuppressWarnings("unchecked")
     public void giveReferralRewards(UUID referralUUID, int score) {
         Player p = Bukkit.getPlayer(uuid);
         if (p == null) {
@@ -283,77 +329,82 @@ public class RefUser {
     }
 
     public void resetReferrer() {
-        Connection conn;
-        try {
-            conn = DatabaseUtil.getConn();
-            PreparedStatement stmt;
-            if (conn != null) {
-                stmt = conn.prepareStatement("DELETE FROM `referrals` WHERE `uuid` = ?;");
-                if (stmt != null) {
-                    stmt.setString(1, String.valueOf(uuid));
-                    stmt.execute();
-                    stmt.close();
+        Cache.removeFromReferralsCache(uuid);
+        DatabaseUtil.getDbThread().execute(() -> {
+            Connection conn;
+            try {
+                conn = DatabaseUtil.getConn();
+                PreparedStatement stmt;
+                if (conn != null) {
+                    stmt = conn.prepareStatement("DELETE FROM `" + tablePrefix + "referrals` WHERE `uuid` = ?;");
+                    if (stmt != null) {
+                        stmt.setString(1, String.valueOf(uuid));
+                        stmt.execute();
+                        stmt.close();
+                    }
+                } else {
+                    plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
                 }
-            } else {
-                Bukkit.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
-            }
 
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        });
+
     }
 
 
     public void setOfflineRewards(UUID referralUUID, int referralScore) {
-        Connection conn;
-        try {
-            conn = DatabaseUtil.getConn();
-            if (conn != null) {
-                PreparedStatement stmt = conn.prepareStatement("INSERT INTO `awaiting-reward` VALUES (?,?,?);");
-                stmt.setString(1, String.valueOf(uuid));
-                stmt.setInt(2, referralScore);
-                stmt.setString(3, String.valueOf(referralUUID));
-                stmt.execute();
-                stmt.close();
 
-            } else {
-                Bukkit.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+        Cache.addToAwaitingRewardCache(uuid, referralUUID, referralScore);
+        DatabaseUtil.getDbThread().execute(() -> {
+            Connection conn;
+            try {
+                conn = DatabaseUtil.getConn();
+                if (conn != null) {
+                    PreparedStatement stmt = conn.prepareStatement("INSERT INTO `" + tablePrefix + "awaiting-reward` VALUES (?,?,?);");
+                    stmt.setString(1, String.valueOf(uuid));
+                    stmt.setInt(2, referralScore);
+                    stmt.setString(3, String.valueOf(referralUUID));
+                    stmt.execute();
+                    stmt.close();
+                } else {
+                    plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
+        });
 
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
     }
 
     public void claimPendingRewards() {
-        Connection conn;
-        try {
-            conn = DatabaseUtil.getConn();
-
-            PreparedStatement stmt;
-            if (conn != null) {
-                stmt = conn.prepareStatement("SELECT * FROM `awaiting-reward` WHERE `uuid` = ?;");
-                stmt.setString(1, String.valueOf(uuid));
-                ResultSet resultSet = stmt.executeQuery();
-                while (resultSet.next()) {
-                    Bukkit.getLogger().info("Giving pending reward...");
-                    this.giveReferralRewards(
-                            UUID.fromString(resultSet.getString("referral-uuid")),
-                            resultSet.getInt("reward-score")
-                    );
-                }
-                stmt.close();
-                Bukkit.getLogger().info("Done giving rewards.");
-                PreparedStatement stmt2 = conn.prepareStatement("DELETE FROM `awaiting-reward` WHERE `uuid`=?;");
-                stmt2.execute();
-                stmt2.close();
-            } else {
-                Bukkit.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
+        ArrayList<Map.Entry<UUID, Integer>> rewards;
+        HashMap<UUID, ArrayList<Map.Entry<UUID, Integer>>> cache = Cache.getAwaitingRewardCache();
+        if (cache.containsKey(uuid)) {
+            plugin.getLogger().info("Reward was cached. Cached reward is used.");
+            rewards = cache.get(uuid);
+            for (Map.Entry<UUID, Integer> entry : rewards) {
+                this.giveReferralRewards(entry.getKey(), entry.getValue());
             }
+            Cache.removeFromAwaitingRewardCache(uuid);
+            DatabaseUtil.getDbThread().execute(() -> {
+                Connection conn;
+                try {
+                    conn = DatabaseUtil.getConn();
+                    PreparedStatement stmt = null;
+                    if (conn != null) {
+                        stmt = conn.prepareStatement("DELETE FROM `" + tablePrefix + "awaiting-reward` WHERE `uuid`=?;");
+                        stmt.setString(1, String.valueOf(uuid));
+                        stmt.execute();
+                        stmt.close();
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            });
 
 
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
     }
 }

@@ -3,6 +3,7 @@ package com.stanexe.playerreferrals;
 import com.stanexe.playerreferrals.commands.ReferralAdminCommand;
 import com.stanexe.playerreferrals.commands.ReferralCommand;
 import com.stanexe.playerreferrals.events.JoinListener;
+import com.stanexe.playerreferrals.util.Cache;
 import com.stanexe.playerreferrals.util.DatabaseUtil;
 import com.stanexe.playerreferrals.util.Milestones;
 import org.bukkit.Bukkit;
@@ -16,7 +17,7 @@ import java.io.IOException;
 import java.util.Objects;
 
 public final class PlayerReferrals extends JavaPlugin {
-
+// FIXME: FIX THE AIDS THAT IS EXECUTING ALL COMMANDS ON THE SAME DATABASE THREAD
     private static PlayerReferrals instance;
     private FileConfiguration messagesConfig;
 
@@ -35,6 +36,7 @@ public final class PlayerReferrals extends JavaPlugin {
 
         // Init milestones
         new Milestones();
+        new Cache();
 
         // Events
         Bukkit.getPluginManager().registerEvents(new JoinListener(), this);
@@ -44,16 +46,13 @@ public final class PlayerReferrals extends JavaPlugin {
         Objects.requireNonNull(getCommand("referral")).setExecutor(new ReferralCommand());
 
 
-
-        getLogger().info("PlayerReferrals has been enabled.");
-
     }
 
     @Override
     public void onDisable() {
-        getLogger().info("PlayerReferrals has been disabled.");
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     private void createMessagesConfig() {
         File messagesFile = new File(getDataFolder(), "messages.yml");
         if (!messagesFile.exists()) {
@@ -66,17 +65,6 @@ public final class PlayerReferrals extends JavaPlugin {
         } catch (IOException | InvalidConfigurationException e) {
             e.printStackTrace();
             Bukkit.getPluginManager().disablePlugin(this);
-        }
-    }
-
-
-    public void reloadConfigs() {
-        reloadConfig();
-        File messagesFile = new File(getDataFolder(), "messages.yml");
-        try {
-            messagesConfig.load(messagesFile);
-        } catch (IOException | InvalidConfigurationException e) {
-            e.printStackTrace();
         }
     }
 
