@@ -19,12 +19,11 @@ public class RefUser {
     private final UUID uuid;
 
     private final PlayerReferrals plugin = PlayerReferrals.getInstance();
+    private final String tablePrefix = plugin.getConfig().getString("table-prefix");
 
     public RefUser(UUID providedUuid) {
         uuid = providedUuid;
     }
-
-    private final String tablePrefix = plugin.getConfig().getString("table-prefix");
 
     public void adjustPlayerScore(int value) {
         int oldScore = this.getPlayerScore();
@@ -87,11 +86,16 @@ public class RefUser {
         try {
             conn = DatabaseUtil.getConn();
             if (conn != null) {
-                PreparedStatement stmt = conn.prepareStatement("INSERT OR REPLACE INTO `" + tablePrefix + "referral-scores` (`uuid`, `score`) VALUES (?, ?)");
+                PreparedStatement stmt;
+                if (getDbType().equalsIgnoreCase("SQLITE")) {
+                    stmt = conn.prepareStatement("INSERT OR REPLACE INTO `" + tablePrefix + "referral-scores` (`uuid`, `score`) VALUES (?, ?)");
+                } else {
+                    stmt = conn.prepareStatement("REPLACE INTO `" + tablePrefix + "referral-scores` (`uuid`, `score`) VALUES (?, ?)");
+                }
+
                 stmt.setString(1, String.valueOf(uuid));
                 stmt.setInt(2, newScore);
                 stmt.executeUpdate();
-                plugin.getLogger().info(String.valueOf(conn.isValid(1)));
             } else {
                 plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
             }
@@ -118,28 +122,7 @@ public class RefUser {
 
         HashMap<UUID, String> cache = Cache.getIpCache();
         if (cache.containsKey(uuid)) {
-            plugin.getLogger().info("IP was cached. Cached ip is used.");
             return cache.get(uuid);
-        }
-
-        Connection conn;
-        try {
-            conn = DatabaseUtil.getConn();
-            if (conn != null) {
-                PreparedStatement stmt = conn.prepareStatement("SELECT `ip` FROM `" + tablePrefix + "ip-addresses` WHERE `uuid` = ?;");
-                stmt.setString(1, String.valueOf(uuid));
-                ResultSet resultSet = stmt.executeQuery();
-                if (resultSet.next()) {
-                    String ip = resultSet.getString("ip");
-                    stmt.close();
-                    return ip;
-                }
-                stmt.close();
-            } else {
-                plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
         return null;
     }
@@ -181,32 +164,8 @@ public class RefUser {
 
         HashMap<UUID, UUID> cache = Cache.getReferralsCache();
         if (cache.containsKey(uuid)) {
-            plugin.getLogger().info("Referral was cached. Cached referral is used.");
             return cache.get(uuid);
         }
-
-//        Connection conn;
-//        try {
-//            conn = DatabaseUtil.getConn();
-//            if (conn != null) {
-//                PreparedStatement stmt = conn.prepareStatement("SELECT `referrer-uuid` FROM `" + tablePrefix + "referrals` WHERE `uuid` = ?");
-//                stmt.setString(1, String.valueOf(uuid));
-//                ResultSet resultSet = stmt.executeQuery();
-//                if (!resultSet.next()) {
-//                    return null;
-//                } else {
-//                    UUID referrerUuid = UUID.fromString(resultSet.getString("referrer-uuid"));
-//                    stmt.close();
-//                    return referrerUuid;
-//                }
-//            } else {
-//                plugin.getLogger().warning("An error has occurred in the database. Please report this to the plugin author if this keeps happening.");
-//            }
-//
-//
-//        } catch (SQLException e) {
-//            e.printStackTrace();
-//        }
         return null;
     }
 
@@ -248,13 +207,14 @@ public class RefUser {
         List<String> commands = (List<String>) plugin.getConfig().getList("referred-rewards.commands");
         if (msg != null) {
             msg = msg.replace("%username%", p.getName());
-            msg = msg.replace("%newScore%", String.valueOf(this.getPlayerScore()));
+            msg = msg.replace("%score%", String.valueOf(this.getPlayerScore()));
             msg = msg.replace("%referralUsername%", String.valueOf(Bukkit.getOfflinePlayer(referralUUID).getName()));
             p.sendMessage(colors(msg));
         }
         if (commands != null) {
             for (String cmd : commands) {
                 cmd = cmd.replace("%username%", p.getName());
+                cmd = cmd.replace("%score%", String.valueOf(this.getPlayerScore()));
                 cmd = cmd.replace("%referralUsername%", String.valueOf(Bukkit.getOfflinePlayer(referralUUID).getName()));
                 String finalCmd = cmd;
                 new BukkitRunnable() {
@@ -279,12 +239,14 @@ public class RefUser {
         List<String> commands = (List<String>) plugin.getConfig().getList("referral-rewards.commands");
         if (msg != null) {
             msg = msg.replace("%username%", p.getName());
+            msg = msg.replace("%score%", String.valueOf(score));
             msg = msg.replace("%referredUsername%", String.valueOf(Bukkit.getOfflinePlayer(referralUUID).getName()));
             p.sendMessage(colors(msg));
         }
         if (commands != null) {
             for (String cmd : commands) {
                 cmd = cmd.replace("%username%", p.getName());
+                cmd = cmd.replace("%score%", String.valueOf(score));
                 cmd = cmd.replace("%referredUsername%", String.valueOf(Bukkit.getOfflinePlayer(referralUUID).getName()));
                 String finalCmd = cmd;
                 new BukkitRunnable() {
@@ -353,7 +315,6 @@ public class RefUser {
 
     }
 
-
     public void setOfflineRewards(UUID referralUUID, int referralScore) {
 
         Cache.addToAwaitingRewardCache(uuid, referralUUID, referralScore);
@@ -382,7 +343,6 @@ public class RefUser {
         ArrayList<Map.Entry<UUID, Integer>> rewards;
         HashMap<UUID, ArrayList<Map.Entry<UUID, Integer>>> cache = Cache.getAwaitingRewardCache();
         if (cache.containsKey(uuid)) {
-            plugin.getLogger().info("Reward was cached. Cached reward is used.");
             rewards = cache.get(uuid);
             for (Map.Entry<UUID, Integer> entry : rewards) {
                 this.giveReferralRewards(entry.getKey(), entry.getValue());

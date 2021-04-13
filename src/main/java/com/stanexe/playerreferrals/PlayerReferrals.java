@@ -4,8 +4,9 @@ import com.stanexe.playerreferrals.commands.ReferralAdminCommand;
 import com.stanexe.playerreferrals.commands.ReferralCommand;
 import com.stanexe.playerreferrals.events.JoinListener;
 import com.stanexe.playerreferrals.util.Cache;
-import com.stanexe.playerreferrals.util.DatabaseUtil;
 import com.stanexe.playerreferrals.util.Milestones;
+import com.stanexe.playerreferrals.util.PlayerReferralsExpansion;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -17,7 +18,6 @@ import java.io.IOException;
 import java.util.Objects;
 
 public final class PlayerReferrals extends JavaPlugin {
-// FIXME: FIX THE AIDS THAT IS EXECUTING ALL COMMANDS ON THE SAME DATABASE THREAD
     private static PlayerReferrals instance;
     private FileConfiguration messagesConfig;
 
@@ -31,8 +31,10 @@ public final class PlayerReferrals extends JavaPlugin {
         this.saveDefaultConfig();
         createMessagesConfig();
 
-        // Connect to database
-        DatabaseUtil.getDbThread().execute(() -> DatabaseUtil.initializeTables(DatabaseUtil.getConn()));
+        if (getConfig().getBoolean("bStats")) {
+            int pluginId = 11044;
+            Metrics metrics = new Metrics(this, pluginId);
+        }
 
         // Init milestones
         new Milestones();
@@ -44,7 +46,9 @@ public final class PlayerReferrals extends JavaPlugin {
         // Commands
         Objects.requireNonNull(getCommand("referraladmin")).setExecutor(new ReferralAdminCommand());
         Objects.requireNonNull(getCommand("referral")).setExecutor(new ReferralCommand());
-
+        if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null){
+            new PlayerReferralsExpansion().register();
+        }
 
     }
 

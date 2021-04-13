@@ -2,7 +2,6 @@ package com.stanexe.playerreferrals.commands;
 
 import com.google.common.collect.Lists;
 import com.stanexe.playerreferrals.PlayerReferrals;
-import com.stanexe.playerreferrals.util.DatabaseUtil;
 import com.stanexe.playerreferrals.util.RefUser;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -22,11 +21,15 @@ public class ReferralAdminCommand implements TabExecutor {
     private final PlayerReferrals plugin = PlayerReferrals.getInstance();
     private final FileConfiguration messagesConfig = plugin.getMessagesConfig();
     private final String prefix = colors(messagesConfig.getString("prefix"));
-    final FileConfiguration messages = plugin.getMessagesConfig();
-
+    private final FileConfiguration messages = plugin.getMessagesConfig();
+    private final String noPermission = messages.getString("admin-no-permission");
     @Override
     @SuppressWarnings("deprecation")
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!sender.hasPermission("playerreferrals.admin.command")) {
+            if (noPermission != null) {sender.sendMessage(colors(noPermission));}
+            return true;
+        }
         if (args.length == 0) {
             sendHelpMessage(sender, label);
             return true;
@@ -36,10 +39,14 @@ public class ReferralAdminCommand implements TabExecutor {
                 sendHelpMessage(sender, label);
                 break;
             case "check":
+                if (!sender.hasPermission("playerreferrals.admin.check")) {
+                    if (noPermission != null) {sender.sendMessage(colors(noPermission));}
+                    return true;
+                }
                 if (args.length != 1) {
                     OfflinePlayer oPlayer = Bukkit.getOfflinePlayer(args[1]);
                     if (oPlayer.hasPlayedBefore()) {
-                        DatabaseUtil.getDbThread().execute(() -> {
+
                             RefUser refUser = new RefUser(oPlayer.getUniqueId());
                             long score = refUser.getPlayerScore();
                             if (score == -1) {
@@ -63,11 +70,10 @@ public class ReferralAdminCommand implements TabExecutor {
                                     }
                                 }
                                 if (message == null) {
-                                    return;
+                                    return true;
                                 }
                                 sendMessage(oPlayer, refUser, sender, message);
                             }
-                        });
                     } else {
                         String msg = messages.getString("admin-check-no-player-found");
                         if (msg == null) {
@@ -85,6 +91,10 @@ public class ReferralAdminCommand implements TabExecutor {
                 }
                 break;
             case "set":
+                if (!sender.hasPermission("playerreferrals.admin.set")) {
+                    if (noPermission != null) {sender.sendMessage(colors(noPermission));}
+                    return true;
+                }
                 if (args.length >= 3) {
                     OfflinePlayer oPlayer = Bukkit.getOfflinePlayer(args[1]);
                     if (oPlayer.hasPlayedBefore()) {
@@ -95,15 +105,13 @@ public class ReferralAdminCommand implements TabExecutor {
                         } catch (NumberFormatException e) {
                             return true;
                         }
-                        DatabaseUtil.getDbThread().execute(() -> {
                             RefUser refUser = new RefUser(oPlayer.getUniqueId());
                             refUser.setPlayerScore(newScore);
                             String msg = messages.getString("admin-set-success");
                             if (msg == null) {
-                                return;
+                                return true;
                             }
                             sendMessage(oPlayer, refUser, sender, msg);
-                        });
                     } else {
                         String msg = messages.getString("admin-set-no-player-found");
                         if (msg == null) {
@@ -121,6 +129,10 @@ public class ReferralAdminCommand implements TabExecutor {
                 }
                 break;
             case "adjust":
+                if (!sender.hasPermission("playerreferrals.admin.adjust")) {
+                    if (noPermission != null) {sender.sendMessage(colors(noPermission));}
+                    return true;
+                }
                 if (args.length != 2) {
                     OfflinePlayer oPlayer = Bukkit.getOfflinePlayer(args[1]);
                     if (oPlayer.hasPlayedBefore()) {
@@ -130,16 +142,14 @@ public class ReferralAdminCommand implements TabExecutor {
                         } catch (NumberFormatException e) {
                             return true;
                         }
-                        DatabaseUtil.getDbThread().execute(() -> {
                             RefUser refUser = new RefUser(oPlayer.getUniqueId());
                             refUser.adjustPlayerScore(value);
                             String msg = messages.getString("admin-adjust-success");
                             if (msg == null) {
-                                return;
+                                return true;
                             }
                             sendMessage(oPlayer, new RefUser(oPlayer.getUniqueId()), sender, msg, value);
 
-                        });
                     } else {
                         String msg = messages.getString("admin-adjust-no-player-found");
                         if (msg == null) {
@@ -156,27 +166,36 @@ public class ReferralAdminCommand implements TabExecutor {
                 }
                 break;
             case "reload":
+                if (!sender.hasPermission("playerreferrals.admin.reload")) {
+                    if (noPermission != null) {sender.sendMessage(colors(noPermission));}
+                    return true;
+                }
                 Bukkit.getPluginManager().disablePlugin(PlayerReferrals.getInstance());
                 Bukkit.getPluginManager().enablePlugin(PlayerReferrals.getInstance());
                 break;
             case "about":
+                if (!sender.hasPermission("playerreferrals.admin.about")) {
+                    if (noPermission != null) {sender.sendMessage(colors(noPermission));}
+                }
                 String version = Objects.requireNonNull(Bukkit.getPluginManager().getPlugin("PlayerReferrals")).getDescription().getVersion();
                 sender.sendMessage(colors("&bPlayerReferrals &3is made by &bStanEXE&3.&r\n" +
                         "&3You are running version &b" + version));
                 break;
             case "reset":
+                if (!sender.hasPermission("playerreferrals.admin.reset")) {
+                    if (noPermission != null) {sender.sendMessage(colors(noPermission));}
+                    return true;
+                }
                 if (args.length >= 2) {
                     OfflinePlayer oPlayer = Bukkit.getOfflinePlayer(args[1]);
                     if (oPlayer.hasPlayedBefore()) {
-                        DatabaseUtil.getDbThread().execute(() -> {
                             RefUser refUser = new RefUser(oPlayer.getUniqueId());
                             refUser.resetReferrer();
                             String msg = messages.getString("admin-reset-success");
                             if (msg == null) {
-                                return;
+                                return true;
                             }
                             sendMessage(oPlayer, refUser, sender, msg);
-                        });
                     } else {
                         String msg = messages.getString("admin-reset-no-player-found");
                         if (msg == null) {
@@ -243,7 +262,7 @@ public class ReferralAdminCommand implements TabExecutor {
         List<String> Flist = Lists.newArrayList();
         if (args.length == 1) {
             for (String s : arguments) {
-                if (s.toLowerCase().startsWith(args[0].toLowerCase())) {
+                if (s.toLowerCase().startsWith(args[0].toLowerCase()) && sender.hasPermission("playerreferrals.admin." + s)) {
                     Flist.add(s);
                 }
             }

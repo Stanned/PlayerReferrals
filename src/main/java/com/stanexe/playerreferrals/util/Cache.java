@@ -19,6 +19,11 @@ public class Cache {
 
     public Cache() {
         DatabaseUtil.getDbThread().execute(() -> {
+            boolean tablesInitialized = false;
+            tablesInitialized = DatabaseUtil.initializeTables(DatabaseUtil.getConn());
+            while (!tablesInitialized) {
+                return;
+            }
             Connection conn = DatabaseUtil.getConn();
             try {
                 PreparedStatement stmt = conn.prepareStatement("SELECT * FROM `" + tablePrefix + "referral-scores`;");
@@ -28,17 +33,15 @@ public class Cache {
                     scoresCache.put(UUID.fromString(rsScores.getString("uuid")), rsScores.getInt("score"));
                     i++;
                 }
-                plugin.getLogger().info("Finished caching " + i + " scores.");
                 stmt.close();
 
                 PreparedStatement stmt2 = conn.prepareStatement("SELECT * FROM `" + tablePrefix + "referrals`;");
                 ResultSet rsReferrals = stmt2.executeQuery();
                 int x = 0;
-                while (rsScores.next()) {
+                while (rsReferrals.next()) {
                     referralsCache.put(UUID.fromString(rsReferrals.getString("uuid")), UUID.fromString(rsReferrals.getString("referrer-uuid")));
                     x++;
                 }
-                plugin.getLogger().info("Finished caching " + x + " referrals.");
 
                 PreparedStatement stmt3 = conn.prepareStatement("SELECT * FROM `" + tablePrefix + "ip-addresses`;");
                 ResultSet rsIps = stmt3.executeQuery();
@@ -47,7 +50,6 @@ public class Cache {
                     ipCache.put(UUID.fromString(rsIps.getString("uuid")), rsIps.getString("ip"));
                     y++;
                 }
-                plugin.getLogger().info("Finished caching " + y + " IP addresses.");
 
                 PreparedStatement stmt4 = conn.prepareStatement("SELECT * FROM `" + tablePrefix + "awaiting-reward`");
                 ResultSet rsAwaiting = stmt4.executeQuery();
@@ -65,7 +67,6 @@ public class Cache {
                     awaitingRewardCache.put(uuid, rewards);
                     z++;
                 }
-                plugin.getLogger().info("Finished caching " + z + " offline referrals.");
             } catch (SQLException throwables) {
                 throwables.printStackTrace();
             }

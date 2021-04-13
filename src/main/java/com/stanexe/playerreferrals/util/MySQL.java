@@ -17,20 +17,21 @@ public class MySQL {
     private final String username = config.getString("username");
     private final String password = config.getString("password");
 
-    public Connection openConnection() throws SQLException {
-        if (conn != null && conn.isValid(1)) {
-            return conn;
-        }
+    public Connection openConnection() {
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            if (conn != null && conn.isValid(1)) {
+                return conn;
+            }
+            conn = DriverManager.getConnection("jdbc:mysql://" +
+                    this.host + ":" +
+                    this.port + "/" +
+                    this.database, this.username, this.password
+            );
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Database errror: " + e.getErrorCode());
+            plugin.getLogger().warning("Please check if you entered the correct database credentials and the database is reachable.");
         }
-        conn = DriverManager.getConnection("jdbc:mysql://" +
-                this.host + ":" +
-                this.port + "/" +
-                this.database, this.username, this.password
-        );
+
         return conn;
     }
 

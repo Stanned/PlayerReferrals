@@ -1,7 +1,6 @@
 package com.stanexe.playerreferrals.commands;
 
 import com.stanexe.playerreferrals.PlayerReferrals;
-import com.stanexe.playerreferrals.util.DatabaseUtil;
 import com.stanexe.playerreferrals.util.RefUser;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -33,55 +32,53 @@ public class ReferralCommand implements CommandExecutor {
         }
         Player player = (Player) sender;
         if (args.length == 0) {
-            DatabaseUtil.getDbThread().execute(() -> {
-                RefUser refUser = new RefUser(player.getUniqueId());
-                UUID referrer = refUser.getReferrer();
-                String referralScore = messages.getString("referral.score");
-                String message = null;
-                if (referralScore != null) {
-                    message = messages.getString("referral.score") + "&r";
+            RefUser refUser = new RefUser(player.getUniqueId());
+            UUID referrer = refUser.getReferrer();
+            String referralScore = messages.getString("referral.score");
+            String message = null;
+            if (referralScore != null) {
+                message = referralScore + "&r";
+            }
+            if (referrer != null) {
+                String referralReferred = messages.getString("referral.referred");
+                if (referralReferred != null) {
+                    message = message + "\n" + referralReferred + "&r";
                 }
-                if (referrer != null) {
-                    String referralReferred = messages.getString("referral.referred");
-                    if (referralReferred != null) {
-                        message = message + "\n" + messages.getString("referral.referred") + "&r";
-                    }
 
+            }
+            if (refUser.isInTime() && referrer == null) {
+                String referralNoRefer = messages.getString("referral.no-refer");
+                if (referralNoRefer != null) {
+                    message = message + "\n" + referralNoRefer + "&r";
                 }
-                if (refUser.isInTime() && referrer == null) {
-                    String referralNoRefer = messages.getString("referral.no-refer");
-                    if (referralNoRefer != null) {
-                        message = message + "\n" + messages.getString("referral.no-refer") + "&r";
-                    }
-                    String referralExplanation = messages.getString("referral.explanation");
-                    if (referralExplanation != null) {
-                        message = message + "\n" + messages.getString("referral.explanation") + "&r";
-                    }
+                String referralExplanation = messages.getString("referral.explanation");
+                if (referralExplanation != null) {
+                    message = message + "\n" + referralExplanation + "&r";
                 }
-                if (message == null) {
-                    return;
-                }
-                sendMessage(player, refUser, message);
-            });
+            }
+            if (message == null) {
+                return true;
+            }
+            sendMessage(player, refUser, message);
         } else {
-            DatabaseUtil.getDbThread().execute(() -> {
+
                 RefUser refUser = new RefUser(player.getUniqueId());
                 UUID referrerUUID = refUser.getReferrer();
                 // Check if player can refer
                 if (referrerUUID != null) {
                     String msg = messages.getString("already-referred");
                     if (msg == null) {
-                        return;
+                        return true;
                     }
                     sendMessage(player, refUser, msg);
-                    return;
+                    return true;
                 } else if (!refUser.isInTime()) {
                     String msg = messages.getString("out-of-time");
                     if (msg == null) {
-                        return;
+                        return true;
                     }
                     sendMessage(player, refUser, msg);
-                    return;
+                    return true;
                 }
                 // Check if player is self
                 String providedUsername = args[0];
@@ -89,10 +86,10 @@ public class ReferralCommand implements CommandExecutor {
                 if (oPlayer.getUniqueId() == player.getUniqueId()) {
                     String msg = messages.getString("refer-self");
                     if (msg == null) {
-                        return;
+                        return true;
                     }
                     sendMessage(player, refUser, msg);
-                    return;
+                    return true;
                 }
                 RefUser oRefUser = new RefUser(oPlayer.getUniqueId());
 
@@ -101,10 +98,10 @@ public class ReferralCommand implements CommandExecutor {
                     if (oRefUser.getReferrer() == player.getUniqueId()) {
                         String msg = messages.getString("refer-by-referrer");
                         if (msg == null) {
-                            return;
+                            return true;
                         }
                         sendMessage(player, refUser, msg);
-                        return;
+                        return true;
                     }
                 }
 
@@ -112,23 +109,23 @@ public class ReferralCommand implements CommandExecutor {
                 if (!oPlayer.hasPlayedBefore()) {
                     String msg = messages.getString("player-not-exist");
                     if (msg == null) {
-                        return;
+                        return true;
                     }
                     sendMessage(player, refUser, msg);
-                    return;
+                    return true;
                 }
                 // Check if ip match
 
                 if (plugin.getConfig().getBoolean("ip-check")) {
                     String oIp = oRefUser.getStoredIP();
                     String ip = refUser.getStoredIP();
-                    if (!(oIp == null) && ip.equals(oIp)) {
+                    if (ip != null && ip.equals(oIp)) {
                         String msg = messages.getString("ip-match");
                         if (msg == null) {
-                            return;
+                            return true;
                         }
                         sendMessage(player, refUser, msg);
-                        return;
+                        return true;
                     }
                 }
 
@@ -141,14 +138,13 @@ public class ReferralCommand implements CommandExecutor {
                 } else {
                     oRefUser.setOfflineRewards(player.getUniqueId(), oRefUser.getPlayerScore() + 1);
                 }
-            });
         }
         return true;
     }
 
     private void sendMessage(Player player, RefUser refUser, String msg) {
         msg = msg.replace("%username%", player.getName());
-        msg = msg.replace("%score% ", String.valueOf(refUser.getPlayerScore()));
+        msg = msg.replace("%score%", String.valueOf(refUser.getPlayerScore()));
         UUID referrerUUID = refUser.getReferrer();
         if (referrerUUID != null) {
             msg = msg.replace("%referrerUsername%", Objects.requireNonNull(Bukkit.getOfflinePlayer(refUser.getReferrer()).getName()));

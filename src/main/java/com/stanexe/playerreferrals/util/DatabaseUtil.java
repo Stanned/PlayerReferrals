@@ -2,6 +2,7 @@ package com.stanexe.playerreferrals.util;
 
 import com.stanexe.playerreferrals.PlayerReferrals;
 import org.bukkit.Bukkit;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -10,9 +11,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class DatabaseUtil {
-    private static final ExecutorService dbThread = Executors.newSingleThreadExecutor();
     static final PlayerReferrals plugin = PlayerReferrals.getInstance();
     static final String dbType = plugin.getConfig().getString("database-type");
+    private static final ExecutorService dbThread = Executors.newSingleThreadExecutor();
     private static Connection conn;
 
     public static String getDbType() {
@@ -39,13 +40,10 @@ public class DatabaseUtil {
                     plugin.getLogger().warning("Unable to open connection to database. If this is a bug, please report it.");
                 }
             } else if (dbType.equalsIgnoreCase("MYSQL")) {
-                try {
-                    conn = new MySQL().openConnection();
+                conn = new MySQL().openConnection();
+                if (conn != null) {
                     plugin.getLogger().info("Connected to MYSQL database!");
                     return conn;
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                    plugin.getLogger().warning("Unable to open connection to database. If this is a bug, please report it.");
                 }
             } else {
                 plugin.getLogger().info("Invalid database type. Expected SQLITE or MYSQL, received: " + dbType);
@@ -55,13 +53,22 @@ public class DatabaseUtil {
         return null;
     }
 
-    public static void initializeTables(Connection conn) {
+    public static boolean initializeTables(Connection conn) {
+        if (conn == null) {
+            plugin.getLogger().warning("Connection to the database appears to be invalid.");
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    Bukkit.getPluginManager().disablePlugin(plugin);
+                }
+            }.runTask(plugin);
 
+            return false;
+        }
         String tablePrefix = plugin.getConfig().getString("table-prefix");
-        plugin.getLogger().info(tablePrefix);
         String[] sql = {"CREATE TABLE IF NOT EXISTS `" + tablePrefix + "referrals` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `referrer-uuid` CHAR(36));",
                 "CREATE TABLE IF NOT EXISTS `" + tablePrefix + "referral-scores` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `score` INT DEFAULT 0 NOT NULL);",
-                "CREATE TABLE IF NOT EXISTS `" + tablePrefix + "awaiting-reward` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `reward-score` INT NOT NULL, `referral-uuid` CHAR(36) NOT NULL)",
+                "CREATE TABLE IF NOT EXISTS `" + tablePrefix + "awaiting-reward` (`uuid` CHAR(36) NOT NULL, `reward-score` INT NOT NULL, `referral-uuid` CHAR(36) NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS `" + tablePrefix + "ip-addresses` (`uuid` CHAR(36) PRIMARY KEY NOT NULL, `ip` TEXT)"};
         int i;
         for (i = 0; i < sql.length; i++) {
@@ -72,6 +79,7 @@ public class DatabaseUtil {
                 e.printStackTrace();
             }
         }
+        return true;
 
     }
 
