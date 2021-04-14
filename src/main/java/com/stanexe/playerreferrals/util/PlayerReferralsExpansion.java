@@ -1,12 +1,17 @@
 package com.stanexe.playerreferrals.util;
 
+import com.stanexe.playerreferrals.PlayerReferrals;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
 
-public class PlayerReferralsExpansion extends PlaceholderExpansion {
+import java.util.UUID;
 
+
+
+public class PlayerReferralsExpansion extends PlaceholderExpansion {
+    private final PlayerReferrals plugin = PlayerReferrals.getInstance();
     @Override
     public boolean canRegister() {
         return true;
@@ -37,7 +42,17 @@ public class PlayerReferralsExpansion extends PlaceholderExpansion {
 
         if (identifier.equals("referrerign")) {
             RefUser refUser = new RefUser(player.getUniqueId());
-            return Bukkit.getOfflinePlayer(refUser.getReferrer()).getName();
+            UUID uuid = refUser.getReferrer();
+            if (uuid != null) {
+                return Bukkit.getOfflinePlayer(uuid).getName();
+            } else {
+                String text = plugin.getMessagesConfig().getString("referrerign-placeholder-empty");
+                if (text == null) {
+                    return "";
+                }
+                return StringTools.colors(text);
+            }
+
         }
 
         if (identifier.equals("minutesremaining")) {

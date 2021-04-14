@@ -62,3 +62,5 @@ admin-adjust-usage: "&3Usage: /referraladmin adjust <player> <value>"
 admin-reset-usage: "&3Usage: /referraladmin reset <player>"
 
 admin-no-permission: "&cYou don't have permission to execute this command."
+
+referrerign-placeholder-empty: "Nobody"
