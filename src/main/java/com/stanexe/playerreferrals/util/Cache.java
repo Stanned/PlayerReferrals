@@ -15,6 +15,7 @@ public class Cache {
     private final static HashMap<UUID, String> ipCache = new HashMap<>();
     private final static HashMap<UUID, ArrayList<Map.Entry<UUID, Integer>>> awaitingRewardCache = new HashMap<>();
     private final PlayerReferrals plugin = PlayerReferrals.getInstance();
+
     private final String tablePrefix = plugin.getConfig().getString("table-prefix");
 
     public Cache() {
