@@ -107,6 +107,9 @@ public class RefUser {
     public boolean isInTime() {
         long ticksPlayed = Bukkit.getOfflinePlayer(uuid).getStatistic(Statistic.PLAY_ONE_MINUTE);
         long minutesAllowed = plugin.getConfig().getLong("minutes-allowed");
+        if (minutesAllowed == -1) {
+            return true;
+        }
         long minutesPlayed = ticksPlayed / 20 / 60;
         return minutesPlayed <= minutesAllowed;
     }

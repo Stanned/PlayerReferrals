@@ -49,5 +49,5 @@ milestones:
       - "eco give %username% 100"
     message: "&3You reached &b%score% &3and have received additional rewards!"
 
-
+# To disable this, use -1
 minutes-allowed: 60
