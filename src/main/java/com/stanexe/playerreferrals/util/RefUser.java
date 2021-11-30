@@ -25,6 +25,10 @@ public class RefUser {
         uuid = providedUuid;
     }
 
+    public UUID getUUID() {
+        return uuid;
+    }
+
     public void adjustPlayerScore(int value) {
         int oldScore = this.getPlayerScore();
         Cache.addToScoresCache(uuid, oldScore + value);
@@ -355,7 +359,7 @@ public class RefUser {
                 Connection conn;
                 try {
                     conn = DatabaseUtil.getConn();
-                    PreparedStatement stmt = null;
+                    PreparedStatement stmt;
                     if (conn != null) {
                         stmt = conn.prepareStatement("DELETE FROM `" + tablePrefix + "awaiting-reward` WHERE `uuid`=?;");
                         stmt.setString(1, String.valueOf(uuid));

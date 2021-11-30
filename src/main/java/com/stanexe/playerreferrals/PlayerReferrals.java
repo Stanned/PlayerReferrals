@@ -2,6 +2,7 @@ package com.stanexe.playerreferrals;
 
 import com.stanexe.playerreferrals.commands.ReferralAdminCommand;
 import com.stanexe.playerreferrals.commands.ReferralCommand;
+import com.stanexe.playerreferrals.commands.ReferralLeaderboardCommand;
 import com.stanexe.playerreferrals.events.JoinListener;
 import com.stanexe.playerreferrals.util.Cache;
 import com.stanexe.playerreferrals.util.Milestones;
@@ -31,6 +32,7 @@ public final class PlayerReferrals extends JavaPlugin {
         this.saveDefaultConfig();
         createMessagesConfig();
 
+        // bStats
         if (getConfig().getBoolean("bStats")) {
             int pluginId = 11044;
             Metrics metrics = new Metrics(this, pluginId);
@@ -46,6 +48,7 @@ public final class PlayerReferrals extends JavaPlugin {
         // Commands
         Objects.requireNonNull(getCommand("referraladmin")).setExecutor(new ReferralAdminCommand());
         Objects.requireNonNull(getCommand("referral")).setExecutor(new ReferralCommand());
+        Objects.requireNonNull(getCommand("referralleaderboard")).setExecutor(new ReferralLeaderboardCommand());
         if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null){
             new PlayerReferralsExpansion().register();
         }

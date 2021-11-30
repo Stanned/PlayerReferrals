@@ -10,11 +10,11 @@ bStats: true
 database-type: SQLITE
 
 # This will only be used if you use MYSQL as database-type
-host: localhost
+host: "localhost"
 port: 3306
-database: database
-username: username
-password: password
+database: "database"
+username: "username"
+password: "password"
 table-prefix: 'ref_'
 
 # If true, players are able to refer each other
@@ -51,3 +51,6 @@ milestones:
 
 # To disable this, use -1
 minutes-allowed: 60
+
+# Set to false to disable the /referralleaderboard
+enable-leaderboard: true

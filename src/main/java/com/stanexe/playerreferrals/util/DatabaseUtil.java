@@ -4,9 +4,10 @@ import com.stanexe.playerreferrals.PlayerReferrals;
 import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -82,6 +83,29 @@ public class DatabaseUtil {
         return true;
 
     }
+
+    public static List<RefUser> getTopPlayers() {
+        Connection conn;
+        String tablePrefix = plugin.getConfig().getString("table-prefix");
+        try {
+            conn = getConn();
+            if (conn != null) {
+                PreparedStatement stmt;
+                stmt = conn.prepareStatement("SELECT uuid FROM `" + tablePrefix + "referral-scores` ORDER BY score DESC LIMIT 10;");
+                ResultSet resultSet = stmt.executeQuery();
+                List<RefUser> topPlayers = new ArrayList();
+                while (resultSet.next()) {
+                    UUID uuid = UUID.fromString(resultSet.getString("uuid"));
+                    topPlayers.add(new RefUser(uuid));
+                }
+                return topPlayers;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
 
     public static ExecutorService getDbThread() {
         return dbThread;

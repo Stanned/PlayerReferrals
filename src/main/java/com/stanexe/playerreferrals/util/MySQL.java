@@ -28,7 +28,7 @@ public class MySQL {
                     this.database, this.username, this.password
             );
         } catch (SQLException e) {
-            plugin.getLogger().warning("Database errror: " + e.getErrorCode());
+            plugin.getLogger().warning("Database error: " + e.getErrorCode());
             plugin.getLogger().warning("Please check if you entered the correct database credentials and the database is reachable.");
         }
 

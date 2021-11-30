@@ -19,5 +19,12 @@ commands:
     aliases:
       - refer
       - ref
+  referralleaderboard:
+    description: Gives a top 10 of the players with the highest referral score
+    usage: /referralleaderboard
+    aliases:
+      - reflb
+      - referrallb
+      - refleaderboard
 softdepend:
   - PlaceholderAPI
