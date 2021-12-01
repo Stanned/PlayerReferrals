@@ -48,7 +48,9 @@ public final class PlayerReferrals extends JavaPlugin {
         // Commands
         Objects.requireNonNull(getCommand("referraladmin")).setExecutor(new ReferralAdminCommand());
         Objects.requireNonNull(getCommand("referral")).setExecutor(new ReferralCommand());
-        Objects.requireNonNull(getCommand("referralleaderboard")).setExecutor(new ReferralLeaderboardCommand());
+        if (getConfig().getBoolean("enable-leaderboard")) {
+            Objects.requireNonNull(getCommand("referralleaderboard")).setExecutor(new ReferralLeaderboardCommand());
+        }
         if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null){
             new PlayerReferralsExpansion().register();
         }
