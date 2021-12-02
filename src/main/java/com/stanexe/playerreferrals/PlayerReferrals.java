@@ -48,14 +48,13 @@ public final class PlayerReferrals extends JavaPlugin {
         // Commands
         Objects.requireNonNull(getCommand("referraladmin")).setExecutor(new ReferralAdminCommand());
         Objects.requireNonNull(getCommand("referral")).setExecutor(new ReferralCommand());
-        if (getConfig().getBoolean("enable-leaderboard")) {
             Objects.requireNonNull(getCommand("referralleaderboard")).setExecutor(new ReferralLeaderboardCommand());
-        }
         if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null){
             new PlayerReferralsExpansion().register();
         }
 
     }
+
 
     @Override
     public void onDisable() {
@@ -81,4 +80,14 @@ public final class PlayerReferrals extends JavaPlugin {
         return messagesConfig;
     }
 
+    public void reloadMessagesConfig() {
+        File messagesFile = new File(getDataFolder(), "messages.yml");
+        messagesConfig = new YamlConfiguration();
+        try {
+            messagesConfig.load(messagesFile);
+        } catch (IOException | InvalidConfigurationException e) {
+            e.printStackTrace();
+            Bukkit.getPluginManager().disablePlugin(this);
+        }
+    }
 }

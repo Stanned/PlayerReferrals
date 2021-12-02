@@ -9,6 +9,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.List;
@@ -25,7 +26,7 @@ public class ReferralAdminCommand implements TabExecutor {
     private final String noPermission = messages.getString("admin-no-permission");
     @Override
     @SuppressWarnings("deprecation")
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender,@NotNull  Command command, @NotNull String label,@NotNull  String[] args) {
         if (!sender.hasPermission("playerreferrals.admin.command")) {
             if (noPermission != null) {sender.sendMessage(colors(noPermission));}
             return true;
@@ -170,8 +171,8 @@ public class ReferralAdminCommand implements TabExecutor {
                     if (noPermission != null) {sender.sendMessage(colors(noPermission));}
                     return true;
                 }
-                Bukkit.getPluginManager().disablePlugin(PlayerReferrals.getInstance());
-                Bukkit.getPluginManager().enablePlugin(PlayerReferrals.getInstance());
+                plugin.reloadConfig();
+                plugin.reloadMessagesConfig();
                 break;
             case "about":
                 if (!sender.hasPermission("playerreferrals.admin.about")) {
@@ -257,7 +258,7 @@ public class ReferralAdminCommand implements TabExecutor {
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias,@NotNull String[] args) {
         List<String> arguments = Arrays.asList("help", "check", "set", "adjust", "reset", "about", "reload");
         List<String> Flist = Lists.newArrayList();
         if (args.length == 1) {
