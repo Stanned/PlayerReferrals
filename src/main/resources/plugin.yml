@@ -16,6 +16,7 @@ commands:
   referral:
     description: Main command for PlayerReferrals
     usage: /referral <player>
+    permission: playerreferrals.referral
     aliases:
       - refer
       - ref
@@ -28,3 +29,7 @@ commands:
       - refleaderboard
 softdepend:
   - PlaceholderAPI
+permissions:
+  playerreferrals.referral:
+    default: true
+    description: "Allows the main referral command. Every player by default."
